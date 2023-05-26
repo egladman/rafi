@@ -15,16 +15,16 @@ git clone https://github.com/egladman/rafi.git ~/rafi && ~/rafi/main init
 
 ## Install Packages
 
-A. Install group `retroarch`. The group includes all available retroarch packages.
+A. Install group `retroarch`. The group includes the retroarch package itself and all available libretro cores.
 
 ```
 rafi install @retroarch
 ```
 
-B. Install packages `retroarch`, and `ppsspp`
+B. Install packages `retroarch`, and `libretro-ppsspp`
 
 ```
-rafi install retroarch ppsspp
+rafi install retroarch libretro-ppsspp
 ```
 
 ## Development
