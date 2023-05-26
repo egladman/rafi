@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+src_unpack() {
+    git clone https://github.com/KhronosGroup/Vulkan-Headers .
+}
+
+src_prepare() {
+    git checkout "$PKG_REF"
+}
+
+src_build() {
+    cmake -S . -B build
+}
+
+src_install() {
+    cmake --install build --prefix "$PKG_PFX_DIR"
+}

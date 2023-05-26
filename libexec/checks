@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+set -o errexit -o pipefail
+
+main() {
+    init
+
+    #@ -h,--help | print this text
+    #@ checks | validate all dependencies are present    
+
+    declare -a deps=(
+	git
+    )
+
+    for d in "${deps[@]}"; do
+	log::info "Checking for '$d'"
+	command -v "$d" || log::fatal "Command '$d' not found"
+    done
+}
+
+main "$@"

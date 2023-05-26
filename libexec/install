@@ -1,0 +1,168 @@
+#!/usr/bin/env bash
+
+set -o errexit -o pipefail
+
+main() {
+    init
+
+    #@ -h,--help | print this text
+    #@ install | install package/group
+    
+    for n in "$@"; do
+	case "$n" in
+	    "@"*)
+		install::group "$n"
+		;;
+	    *)
+		install::package "$n"
+		;;
+	esac
+    done
+}
+
+install::find_package() {
+    local name="${1:?}"
+
+    for d in "${SELF_DIR:?}"/pkgs/**/"${name}"; do
+	# FIXME: This assumes there are no package name conflicts
+	package="$d"
+	break
+    done
+
+    if [[ -z "$package" ]]; then
+	log::fatal "Could not find path associated with package: $name"
+    fi
+    
+    printf '%s' "$package"
+}
+
+install::dependencies() {
+    local package="${1:?}"
+
+    log::debug "Checking for dependencies."
+    
+    local dependencies="${package}/REQUIRE"
+    if [[ ! -f "$dependencies" ]]; then
+	log::debug "No dependencies found. Path '$dependencies' does not exist. Skipping."
+	return 0
+    fi
+
+    # FIXME: Refactor to remove the ||
+    while read -r line || [[ -n "$line"  ]]; do
+	if [[ -z "$line" ]]; then
+	    continue
+	fi
+	
+	log::info "Installing dependency '$line'."
+	install::package "$line"
+    done < "$dependencies"
+}
+
+install::group() {
+    local name="${1:?}"
+
+    local group="${SELF_DIR}/pkgs/group/${name}/ALIAS"
+    if [[ ! -f "$group" ]]; then
+	log::debug "Path '$group' does not exist."
+	log::fatal "Group '$name' does not exist."
+    fi
+
+    # FIXME: Refactor to remove the ||
+    while read -r line || [[ -n "$line"  ]]; do
+	if [[ -z "$line" ]]; then
+	    continue
+	fi
+	
+	install::package "$line"
+    done < "$group"
+}
+
+install::package() {
+    set -- $(string::split "${1:?}" "@")
+
+    local name="$1"
+    local version="$2"
+    
+    local package
+    package="$(install::find_package "$name")"
+
+    install::dependencies "$package"
+    
+    if [[ ! -f "${package}/SOURCE" ]]; then
+	log::debug "Path '$package' does not exist."
+	log::fatal "Package '$name' does not exist."
+    fi
+
+    log::info "Installing $name"
+    source "${package}/SOURCE"
+
+    PKG_DIR="${package}"
+    PKG_REF="$(<"${PKG_DIR}/vars/default_branch")"
+    
+    if [[ -n "$version"  ]]; then	
+	log::debug "Ref overridden for package '$name': Installing version $version"
+	PKG_REF="$version"
+    fi
+
+    export PKG_DATA_DIR="${CMD_DATA_DIR}/${name}"
+    export PKG_SRC_DIR="${PKG_DATA_DIR}/src" # Source code
+    export PKG_PFX_DIR="${PKG_DATA_DIR}/pfx" # Rootfs
+    export PKG_REF PKG_DIR
+
+    fs::mkdir "$PKG_SRC_DIR" "$PKG_PFX_DIR"
+
+    log::debug "Entering directory: $PKG_SRC_DIR"
+    pushd "$PKG_SRC_DIR"
+    
+    # Pretty much a one-for-one clone of Gentoo's ebuild phase functions
+    declare -a phases=(
+	pkg_pretend
+	pkg_setup
+	src_unpack
+	src_prepare
+	src_configure
+	src_build
+	src_test
+	src_install
+	pkg_preinst
+	pkg_postinst
+    )
+
+    case "$version" in
+	stable)
+	    phases=(usr_stable_version ${phases[@]})
+	    ;;
+	latest)
+	    phases=(usr_latest_version ${phases[@]})
+	    ;;
+    esac
+
+    local count
+    for p in "${phases[@]}"; do
+	case "$p" in
+	    usr_stable_version|usr_latest_version)
+		PKG_REF=$("$p")
+		log::debug "Assigned ref to: $PKG_REF"
+		;;
+	    # FIXME: If the source already exists locally no attempts will be made to update them
+	    src_unpack)
+		count=$(fs::count "${PKG_SRC_DIR}"/*)
+		if [[ $count -gt 1 ]]; then
+		    log::debug "Skipping phase '$p'. Source already exists in directory: ${PKG_SRC_DIR}"
+		    continue
+		fi
+		;;
+	esac
+
+	fn::exists "$p" && {
+	    log::debug "Executing phase function '$p' for package '$package'"
+	    ("$p")
+	}
+    done
+
+    log::debug "Leaving directory: $PWD"
+    popd
+    unset "${phases[@]}"
+}
+
+main "$@"

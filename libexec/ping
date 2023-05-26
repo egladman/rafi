@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+set -o errexit -o pipefail
+
+main() {
+    init
+
+    #@ -h,--help | print this text
+
+    #@ ping | returns pong
+    cmd::run echo "pong"
+}
+
+main "$@"

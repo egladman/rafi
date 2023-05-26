@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+
+usr_latest_version() {
+    while read -r line || [[ -n "$line" ]]; do
+	set -- $line
+	printf '%s\n' "${2##*\/}"
+	return 0
+    done < <(git ls-remote --tags --sort=-version:refname https://github.com/libretro/RetroArch.git 'v*')
+
+    return 1
+}
+
+usr_stable_version() {
+    declare -a wrkarr
+    while read -r line || [[ -n "$line" ]]; do
+	set -- $line
+	wrkarr+=("${2##*\/}")
+    done < <(git ls-remote --tags --sort=-version:refname https://github.com/libretro/RetroArch.git 'v*')
+
+    version::first_stable "${wrkarr[@]}"
+}
+
+src_unpack() {
+    git clone https://github.com/libretro/RetroArch.git .
+}
+
+src_prepare() {
+    git checkout "$PKG_REF"
+}
+
+src_build() {
+    make clean
+
+    CPPFLAGS=-I"${CMD_DATA_DIR}/vulkan-headers/pfx/include" \
+    CFLAGS=-I"${CMD_DATA_DIR}/vulkan-headers/pfx/include" \
+    ./configure \
+	--prefix="${PKG_PFX_DIR}"
+
+    make -j$(nproc) "${make_opts[@]}"
+}
+
+src_install() {
+    make install
+}

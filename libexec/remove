@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+
+set -o errexit -o pipefail
+
+main() {
+    init
+
+    #@ -h,--help | print this text
+    #@ remove | uninstall package/group
+    
+    for n in "$@"; do
+	case "$n" in
+	    "@"*)
+		remove::group "$n"
+		;;
+	    *)
+		remove::package "$n"
+		;;
+	esac
+    done
+}
+
+remove::dependencies() {
+    # TODO check if any other packages use it before removing
+    local package="${1:?}"
+
+    log::debug "Checking for dependencies."
+    
+    local dependencies="${package}/REQUIRE"
+    if [[ ! -f "$dependencies" ]]; then
+	log::debug "No dependencies found. Path '$dependencies' does not exist. Skipping."
+	return 0
+    fi
+
+    # FIXME: Refactor to remove the ||
+    while read -r line || [[ -n "$line"  ]]; do
+	if [[ -z "$line" ]]; then
+	    continue
+	fi
+	
+	log::info "Removing dependency '$line'."
+	remove::package "$line"
+    done < "$dependencies"
+}
+
+remove::group() {
+    local name="${1:?}"
+
+    local group="${SELF_DIR}/pkgs/group/${name}/ALIAS"
+    if [[ ! -f "$group" ]]; then
+	log::debug "Path '$group' does not exist."
+	log::fatal "Group '$name' does not exist."
+    fi
+
+    # FIXME: Refactor to remove the ||
+    while read -r line || [[ -n "$line"  ]]; do
+	if [[ -z "$line" ]]; then
+	    continue
+	fi
+
+	remove::package "$line"
+    done < "$group"
+}
+
+remove::package() {
+    set -- $(string::split "${1:?}" "@")
+
+    local name="$1"
+    local version="$2"
+    
+    local package
+    package="$(package::find_by_name "$name")"
+
+    remove::dependencies "$package"
+
+    if [[ -d "${SELF_DATA_DIR}/install/${name}" ]]; then
+	log::info "Removing $name"
+	rm -rf "${SELF_DATA_DIR:?}/install/${name}"
+
+	return 0
+    fi
+
+    log::info "Package '$name' is not installed. Skipping"
+}
+
+main "$@"
