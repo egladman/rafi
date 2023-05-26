@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-
 src_unpack() {
     git clone https://github.com/KhronosGroup/Vulkan-Headers .
 }

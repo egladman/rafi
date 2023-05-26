@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+set -o errexit -o pipefail
+
+main() {
+    init
+
+    #@ -h,--help | print this text
+    #@ list | Print installed packages
+    list::installed
+}
+
+list::installed() {
+    if [[ ! -f "${SELF_STATE_DIR}/INDEX" ]]; then
+	log::fatal "Index not found."
+    fi
+
+    declare -a chunks
+    while read -r line; do
+	chunks=($line)
+	printf '%s\n' "${chunks[0]}"
+    done < "${SELF_STATE_DIR}/INDEX"
+}
+
+main "$@"
