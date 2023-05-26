@@ -97,8 +97,17 @@ install::package() {
     source "${package}/SOURCE"
 
     PKG_DIR="${package}"
-    PKG_REF="$(<"${PKG_DIR}/vars/default_branch")"
-    
+
+    local key val
+    for f in "${PKG_DIR}/vars/"*; do
+	key="vars_${f##*/}"
+	val="$(<"$f")"
+
+	log::debug "Setting variable '$key' to value '$val'"
+	eval export vars_${key}="${val}"
+    done
+
+    PKG_REF="$vars_default_branch"
     if [[ -n "$version"  ]]; then	
 	log::debug "Ref overridden for package '$name': Installing version $version"
 	PKG_REF="$version"
