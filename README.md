@@ -2,10 +2,11 @@
 
 > RetroArch for Immutables
 
-A dumb retroarch/libretro source-based installer written in Bash. Ideal for immutable linux distributions, and single board computers.
+A minimalistic source-based package manager written in Bash. Ideal for immutable linux distributions, and single board computers alike.
 
-- Does not require elevated privileges
-- External commands are used sparingly; builtins are used whenever possible.
+- Does not require elevated privileges.
+- External commands are used sparingly; builtins are used when possible.
+- Respects the Freedesktop specification.
 
 ## Initalize
 
