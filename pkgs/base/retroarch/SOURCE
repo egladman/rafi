@@ -23,7 +23,7 @@ src_unpack() {
 }
 
 src_prepare() {
-    git checkout "$PKG_REF"
+    git::checkout "$PKG_REF"
 }
 
 src_build() {

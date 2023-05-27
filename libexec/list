@@ -11,15 +11,13 @@ main() {
 }
 
 list::installed() {
-    if [[ ! -f "${SELF_STATE_DIR}/INDEX" ]]; then
+    if [[ ! -d "${SELF_STATE_DIR}/index" ]]; then
 	log::fatal "Index not found."
     fi
 
-    declare -a chunks
-    while read -r line; do
-	chunks=($line)
-	printf '%s\n' "${chunks[0]}"
-    done < "${SELF_STATE_DIR}/INDEX"
+    for n in "${SELF_STATE_DIR}/index/"*; do
+	printf '%s\n' "${n##*/}"
+    done
 }
 
 main "$@"

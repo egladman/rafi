@@ -96,35 +96,30 @@ install::package() {
     log::info "Installing $name"
     source "${package}/SOURCE"
 
-    PKG_DIR="${package}"
+    PKG_DIR="$package"
+    PKG_NAME="$name"
 
     local key val
-    for f in "${PKG_DIR}/vars/"*; do
+    for f in "${package}/vars/"*; do
 	key="vars_${f##*/}"
 	val="$(<"$f")"
 
 	log::debug "Setting variable '$key' to value '$val'"
-	eval export vars_${key}="${val}"
+	eval export ${key}="${val}"
     done
 
-    PKG_REF="$vars_default_branch"
+    PKG_REF="${vars_default_branch:?}"
     if [[ -n "$version"  ]]; then	
 	log::debug "Ref overridden for package '$name': Installing version $version"
 	PKG_REF="$version"
     fi
 
-    export PKG_DATA_DIR="${CMD_DATA_DIR}/${name}"
+    export PKG_DATA_DIR="${CMD_DATA_DIR}/${PKG_NAME}"
     export PKG_SRC_DIR="${PKG_DATA_DIR}/src" # Source code
-    export PKG_PFX_DIR="${PKG_DATA_DIR}/pfx" # Rootfs
-    export PKG_REF PKG_DIR
+    export PKG_REF PKG_DIR PKG_NAME
 
-    fs::mkdir "$PKG_SRC_DIR" "$PKG_PFX_DIR"
-
-    log::debug "Entering directory: $PKG_SRC_DIR"
-    pushd "$PKG_SRC_DIR"
-    
     # Pretty much a one-for-one clone of Gentoo's ebuild phase functions
-    declare -a phases=(
+    declare -a external_phases=(
 	pkg_pretend
 	pkg_setup
 	src_unpack
@@ -137,6 +132,23 @@ install::package() {
 	pkg_postinst
     )
 
+    declare -a internal_phases=(
+	sys_setpfx
+    )
+
+    sys_setpfx() {
+	# Each package version gets it's own install prefix
+	export PKG_PFX_DIR="${PKG_DATA_DIR:?}/pfx/${PKG_REF:?}"
+	log::debug "Install prefix: $PKG_PFX_DIR"
+	fs::mkdir "$PKG_PFX_DIR"
+
+	# Set the active package version. This gets added to the user's PATH
+	ln -srf "$PKG_PFX_DIR" "${PKG_DATA_DIR:?}/pfx/_"
+    }
+
+    phases=(${internal_phases[@]} ${external_phases[@]})
+
+    # FIXME: if there is a tag any of the following keywords it will be ignored.
     case "$version" in
 	stable)
 	    phases=(usr_stable_version ${phases[@]})
@@ -146,12 +158,18 @@ install::package() {
 	    ;;
     esac
 
+    fs::mkdir "$PKG_SRC_DIR"
+
+    log::debug "Entering directory: $PKG_SRC_DIR"
+    pushd "$PKG_SRC_DIR"
+
     local count
     for p in "${phases[@]}"; do
 	case "$p" in
 	    usr_stable_version|usr_latest_version)
 		PKG_REF=$("$p")
 		log::debug "Assigned ref to: $PKG_REF"
+		shift
 		;;
 	    # FIXME: If the source already exists locally no attempts will be made to update them
 	    src_unpack)
@@ -160,6 +178,11 @@ install::package() {
 		    log::debug "Skipping phase '$p'. Source already exists in directory: ${PKG_SRC_DIR}"
 		    continue
 		fi
+		;;
+	    sys_*)
+		# sys_* phases are internal, will always exist and should be invoked in the current shell
+		"$p"
+		shift
 		;;
 	esac
 
@@ -171,7 +194,7 @@ install::package() {
 
     log::debug "Leaving directory: $PWD"
     popd
-    unset "${phases[@]}"
+    unset "${external_phases[@]}"
 }
 
 main "$@"
