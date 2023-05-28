@@ -2,12 +2,20 @@
 
 > RetroArch for Immutables
 
-A minimalistic source-based package manager written in Bash. Ideal for immutable linux distributions, and single board computers. Originally written for the Steam Deck.
+A minimalistic source-based package manager written in Bash. Ideal for immutable linux distributions, and single board computers. Originally started as a RetroArch installer for the Steam Deck.
 
 - Does not require elevated privileges.
 - Supports installing multiple versions of a package.
-- Performant. External commands are used sparingly; builtins are used whenever possible.
+- External commands are used sparingly; builtins are used whenever possible.
 - Respects the Freedesktop specification.
+
+## Why this over [asdf](https://github.com/asdf-vm/asdf)?
+
+Some of my gripes:
+
+- When auto-complete is enabled `asdf install <name><TAB>` makes network calls. This smells.
+- Very loose packaging standards. Plugin quality varies immensely.
+- Heavy reliance on external commands and pipes. This leads to a degraded user experience when waiting for commands/prompts to return.
 
 ## Setup
 
@@ -22,6 +30,18 @@ git clone https://github.com/egladman/rafi.git ~/rafi && ~/rafi/main bootstrap i
 ```
 eval "$(rafi init bash)"
 ```
+
+### Sh
+
+todo
+
+### Fish
+
+todo
+
+### Nushell
+
+todo
 
 ## Install Packages
 

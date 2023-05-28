@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+
+set -o errexit -o pipefail
+
+main() {
+    init
+
+    #@ -h,--help | Print this text
+    #@ which | Print executable path
+
+    which::bin "$@"
+}
+
+which::bin() {
+    local bin="${1:?}"
+
+    local bin_path="${SELF_BIN_DIR}/${bin}"
+    if [[ -x "$bin_path" ]]; then
+	readlink -f "$bin_path"
+	return 0
+    fi
+
+    log::fatal "Could not find '${bin}'"
+}
+
+main "$@"

@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+
+set -o errexit -o pipefail
+
+main() {
+    init
+
+    #@ -h,--help | Print this text
+    #@ location | Print package install path
+
+    if [[ -z "$1" ]]; then
+	log::fatal "No package specified."
+    fi
+
+    location::print "$@"
+}
+
+# TODO: support declaring the version
+location::print() {
+    local name="${1:?}"
+
+    local install_dir="${SELF_DATA_DIR:?}/install/${name}"
+    if [[ ! -d "$install_dir" ]]; then
+	log::fatal "Package '$name' not found."
+    fi
+
+    # FIXME: duplicate code from libexec/version
+    local pfx_dir="${install_dir}/pfx"
+    if [[ ! -h "${pfx_dir}/_" ]]; then
+	log::debug "Path '${pfx_dir}/_' does not exist."
+	log::fatal "No version set for package '$name'. Is it even installed?"
+    fi
+    
+    local res
+    res="$(readlink -f "${pfx_dir}/_")"
+
+    printf '%s\n' "$res"
+}
+
+main "$@"
