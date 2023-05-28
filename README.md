@@ -2,16 +2,25 @@
 
 > RetroArch for Immutables
 
-A minimalistic source-based package manager written in Bash. Ideal for immutable linux distributions, and single board computers alike.
+A minimalistic source-based package manager written in Bash. Ideal for immutable linux distributions, and single board computers. Originally written for the Steam Deck.
 
 - Does not require elevated privileges.
-- External commands are used sparingly; builtins are used when possible.
+- Supports installing multiple versions of a package.
+- Performant. External commands are used sparingly; builtins are used whenever possible.
 - Respects the Freedesktop specification.
 
-## Initalize
+## Setup
+
+Clone to `~/rafi` and symlink the executable to `~/.local/bin/rafi`
 
 ```
-git clone https://github.com/egladman/rafi.git ~/rafi && ~/rafi/main init
+git clone https://github.com/egladman/rafi.git ~/rafi && ~/rafi/main bootstrap install
+```
+
+### Bash
+
+```
+eval "$(rafi init bash)"
 ```
 
 ## Install Packages
@@ -30,11 +39,11 @@ rafi install retroarch libretro-ppsspp
 
 ## Development
 
-1. Build builder docker image and start container with interactive session
+1. Build docker image and start container with interactive session
 
 ```
-./build.sh
-./build.sh run
+./dev.sh
+./dev.sh run
 ```
 
 2. Run command(s) inside container. The source code is bind mounted into the working directory

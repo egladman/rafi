@@ -1,44 +1,48 @@
 ARG REGISTRY=docker.io/
+ARG FEDORA_VERSION=37
 
-FROM ${REGISTRY}archlinux:latest
+FROM ${REGISTRY}fedora:${FEDORA_VERSION}
 
 WORKDIR /build
 
 RUN set -eux; \
-    pacman -Sy --noconfirm \
+    dnf install \
+      --setopt=install_weak_deps=False \
+      --assumeyes \
       bash \
-      base-devel \
       ccache \
-      cmake \
-      ffmpeg \
+      clang \
+      cmake3 \
+      ffmpeg-free \
       gamemode \
-      git \
       gcc \
-      libaio \
+      gcc-c++ \
+      git \
+      glslang-devel \
+      libaio-devel \
       libdecor \
-      libx11 \
+      libpng \
+      libusb \
+      libX11 \
       libxcb \
-      libxext \
-      libxinerama \
+      libXext \
+      libXinerama \
       libxkbcommon \
-      libxrandr \
-      libxv \
+      libxml2 \
+      libXrandr \
+      libXv \
       make \
-      mesa \
+      mbedtls-devel \
+      mesa-libEGL-devel \
       python \
-      tree \
-      # xxd
-      vim \
-      vulkan-headers \
-      vulkan-icd-loader \
-      wayland \
-      wayland-protocols \
-    ; \
-    git clone -c feature.manyFiles=true https://github.com/spack/spack.git /spack
-
-RUN set -eux; \
-    /spack/bin/spack install \
-      gcc@9 \
+      spirv-tools-libs \
+      vulkan \
+      wayland-devel \
+      wayland-protocols-devel \
+      xxd \
+      xz-lzma-compat \
+      xz-devel \
+      zlib-devel \
     ;
 
 WORKDIR /src

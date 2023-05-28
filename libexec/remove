@@ -37,8 +37,6 @@ remove::dependencies() {
 	if [[ -z "$line" ]]; then
 	    continue
 	fi
-	
-	log::info "Removing dependency '$line'."
 	remove::package "$line"
     done < "$dependencies"
 }
@@ -67,20 +65,34 @@ remove::package() {
 
     local name="$1"
     local version="$2"
-    
+
     local package
     package="$(package::find_by_name "$name")"
+    log::debug "Found package: ${package}"
+
+    local install_dir
+    install_dir="$(package::find_install "$name" "$version")"
+    log::debug "Found package install path: ${install_dir}"
 
     remove::dependencies "$package"
 
-    if [[ -d "${SELF_DATA_DIR}/install/${name}" ]]; then
-	log::info "Removing $name"
-	rm -rf "${SELF_DATA_DIR:?}/install/${name}"
+    local skip=0
+    if [[ -z "$install_dir" ]]; then
+	log::info "Package '$name' is not installed. Skipping"
+	skip=1
+    elif [[ ! -d "$install_dir" ]]; then
+	log::debug "Path '$install_dir' does not exist."
+	skip=1
+    fi
 
+    # TODO: be consistent with wording. Use 'ref' everywhere
+    if [[ $skip -eq 1 ]]; then
+	log::info "Package '${name}' with ref '$version' not installed."
 	return 0
     fi
 
-    log::info "Package '$name' is not installed. Skipping"
+    log::info "Removing $name"
+    rm -rf "$install_dir"
 }
 
 main "$@"

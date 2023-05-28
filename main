@@ -10,6 +10,8 @@ export SELF SELF_DIR SELF_NAME
 export SELF_CONFIG_DIR="${XDG_CONFIG_HOME:-${HOME}/.config}/${SELF_NAME}"
 export SELF_STATE_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/${SELF_NAME}"
 export SELF_DATA_DIR="${XDG_DATA_HOME:-${HOME}/.local/share}/${SELF_NAME}"
+export SELF_BIN_DIR="${XDG_DATA_HOME:-${HOME}/.local/share}/${SELF_NAME}/_/bin"
+export SELF_INDEX_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/${SELF_NAME}/_"
 
 DEBUG=${DEBUG:-0}
 DRYRUN=${DRYRUN:-0}
@@ -36,23 +38,43 @@ usage::print() {
     while read -r line; do
 	tmp="$(string::trim "$line")"
 	if [[ "$tmp" == "#@"* ]]; then
-	    arr=($(string::split "${tmp###@ }" "|"))
-	    printf '%s\n' "${arr[0]}"     # argument
-	    printf '  %s\n' "${arr[*]:1}" # description
+	    declare -a wrkarr
+	    tmp="${tmp###@ }"
+
+	    IFS= wrkarr=($(string::split "${tmp###@ }" "|"))
+
+	    printf '%s\n' "${wrkarr[0]}"     # argument
+	    printf '  %s\n' "${wrkarr[*]:1}" # description
 	fi
     done < "$1"
 }
 
-self::bootstrap() {
-    # Usage: self::bootstrap
+self::install() {
+    # Usage: self::install
 
-    # It's import no external functions are referenced here
-    mkdir -p "$SELF_CONFIG_DIR" "$SELF_DATA_DIR" "$SELF_STATE_DIR"
+    local bin_dir="${DESTDIR:-${HOME}/.local}/bin"
+    declare -a dirs=(
+	"$SELF_CONFIG_DIR" "$SELF_DATA_DIR" "$SELF_STATE_DIR" "$bin_dir"
+    )
 
-    local dest="${DESTDIR:-${HOME}/.local}/bin/${SELF_NAME}"
-    if [[ ! -L "$dest" ]]; then
-	ln -sr "${0##*/}" "$dest"
+    for d in "${dirs[@]}"; do
+	if [[ -d "$d" ]]; then
+	    continue
+	fi
+	mkdir -p "$d"
+    done
+
+    ln -srf "${0##*/}" "${bin_dir}/${SELF_NAME}"
+    printf '%s\n' "Installed to ${bin_dir}/${SELF_NAME}"
+}
+
+self::configure_bash() {
+    # Usage: self::configure_bash
+    if [[ "$PATH" == *"${SELF_BIN_DIR}"* ]]; then
+	return 0
     fi
+
+    printf '%s\n' "source <(printf '%s\n' PATH=\"${SELF_BIN_DIR}:\$PATH\")"
 }
 
 arg::parse() {
@@ -106,6 +128,34 @@ arg::parse() {
     ARGV=("${targets[@]}")
 }
 
+bootstrap() {
+    # This is written in such a way for the sake of performance. It's not pretty to look at. Func 'bootstrap'
+    # is the first thing called in 'main'. These subcommands will get called often so it's important we do as
+    # little before hand (i.e, no directory traversal, sourcing files), otherwise we'll contribute to slowdown
+    # when executed inside a .rc file.
+
+    if [[ "$1" != "bootstrap" ]] && [[ "$1" != "init" ]]; then
+	init
+	return 0
+    fi
+
+    case "$2" in
+	#@ bootstrap install | Install self
+	install)
+	    self::install
+	    ;;
+	#@ init bash | Print lines that are to be added to your bashrc
+	bash)
+	    self::configure_bash
+	    ;;
+	*)
+	    exit 128
+	    ;;
+    esac
+
+    exit 0
+}
+
 init() {
     # Usage: init
     for f in "${SELF_DIR}/lib/"*.sh; do
@@ -117,22 +167,14 @@ init() {
 }
 
 main() {
-    #@ i,init | create config directory
-    case "$1" in
-	i|init)
-	    self::bootstrap
-	    exit 0
-	    ;;
-    esac
-
-    init
+    bootstrap "$@"
 
     # arg::parse sets global variable ARGV
     arg::parse "$@"
     
     # Builtins
     case "${ARGV[0]}" in
-	#@ help | print this text
+	#@ help | Print this text
 	''|h|help)
 	    usage::print "$0"
 	    exit 0
@@ -145,7 +187,7 @@ main() {
     export CMD_STATE_DIR="${SELF_STATE_DIR:?}/${ARGV[0]}"
     export -f init
 
-    fs::mkdir "$CMD_CONFIG_DIR" "$CMD_DATA_DIR" "$CMD_STATE_DIR"
+    fs::mkdir "$SELF_BIN_DIR" "$CMD_CONFIG_DIR" "$CMD_DATA_DIR" "$CMD_STATE_DIR"
 
     local subcommand="${SELF_DIR}/libexec/${ARGV[0]}"
     if [[ -n "${ARGV[0]}" ]]; then

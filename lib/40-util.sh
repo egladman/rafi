@@ -25,7 +25,17 @@ fs::mkdir() {
 
 fs::count() {
     # Usage: fs::count /path/to/dir/*
-    printf '%s\n' "$#"
+
+    local count=0
+    for f in "$@"; do
+	# Ignore '_', it has a special meaning to us
+	if [[ "${f##*/}" == "_" ]]; then
+	    continue
+	fi
+	count=$((count+1))
+    done
+
+    printf '%s\n' "$count"
 }
 
 path::basename() {

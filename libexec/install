@@ -85,6 +85,7 @@ install::package() {
     
     local package
     package="$(install::find_package "$name")"
+    log::debug "Found package: ${package}"
 
     install::dependencies "$package"
     
@@ -132,10 +133,15 @@ install::package() {
 	pkg_postinst
     )
 
-    declare -a internal_phases=(
+    declare -a internal_pre_phases=(
 	sys_setpfx
     )
 
+    declare -a internal_post_phases=(
+	sys_setpath
+    )
+
+    # TODO: is there a better spot for these functions than nesting them here?
     sys_setpfx() {
 	# Each package version gets it's own install prefix
 	export PKG_PFX_DIR="${PKG_DATA_DIR:?}/pfx/${PKG_REF:?}"
@@ -146,7 +152,19 @@ install::package() {
 	ln -srf "$PKG_PFX_DIR" "${PKG_DATA_DIR:?}/pfx/_"
     }
 
-    phases=(${internal_phases[@]} ${external_phases[@]})
+    sys_setpath(){
+	# After install add executables to the final bin path
+	for b in "${PKG_DATA_DIR:?}/pfx/_/bin/"*; do
+	    log::debug "Symlinking '$b' to '${SELF_BIN_DIR:?}'"
+	    ln -srf "$b" "${SELF_BIN_DIR:?}"
+	done
+    }
+
+    sys_markinstalled() {
+	fs::mkdir "${SELF_STATE_DIR}/_/${PKG_NAME}"
+    }
+
+    phases=(${internal_pre_phases[@]} ${external_phases[@]} ${internal_post_phases[@]})
 
     # FIXME: if there is a tag any of the following keywords it will be ignored.
     case "$version" in
@@ -162,6 +180,12 @@ install::package() {
 
     log::debug "Entering directory: $PKG_SRC_DIR"
     pushd "$PKG_SRC_DIR"
+
+    # Prioritize our package's for the duration of the install
+    if [[ "$PATH" != "${SELF_BIN_DIR}:"* ]]; then
+	log::debug "Adding the following to PATH environment: ${SELF_BIN_DIR}"
+	PATH="${SELF_BIN_DIR}:${PATH}"
+    fi
 
     local count
     for p in "${phases[@]}"; do

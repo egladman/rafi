@@ -11,11 +11,11 @@ main() {
 }
 
 list::installed() {
-    if [[ ! -d "${SELF_STATE_DIR}/index" ]]; then
+    if [[ ! -d "${SELF_INDEX_DIR}" ]]; then
 	log::fatal "Index not found."
     fi
 
-    for n in "${SELF_STATE_DIR}/index/"*; do
+    for n in "${SELF_INDEX_DIR}/"*; do
 	printf '%s\n' "${n##*/}"
     done
 }
