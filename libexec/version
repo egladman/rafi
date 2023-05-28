@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+
+set -o errexit -o pipefail
+
+main() {
+    init
+
+    #@ -h,--help | Print this text
+    #@ version | Print package version
+
+    if [[ -z "$1" ]]; then
+	printf '%s\n' "$(<VERSION)"
+	exit 0
+    fi
+    
+    version::print "$@"
+}
+
+version::print() {
+    local name="${1:?}"
+
+    # TODO: we could error out sooner if we check if the package dir exists
+    local pfx_dir="${SELF_DATA_DIR}/install/${name:?}/pfx"
+    if [[ ! -h "${pfx_dir}/_" ]]; then
+	log::debug "Path '${pfx_dir}/_' does not exist."
+	log::fatal "No version set for package '$name'. Is it even installed?"
+    fi
+
+    local res
+    res="$(readlink -f "${pfx_dir}/_")"
+
+    printf '%s\n' "${res##*/}"
+}
+
+main "$@"

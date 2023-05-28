@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+
+set -o errexit -o pipefail
+
+main() {
+    init
+
+    #@ -h,--help | print this text
+    #@ use | switch package version
+
+    use::version "$@"
+}
+
+use::version() {
+    local name="${1:?}"
+    local version="${2:?}"
+
+    # This is a duplicated. First declared in lib/45-git.sh
+    local regex="^(0|([1-9])+)*"
+
+    local pfx_dir="${SELF_DATA_DIR}/install/${name:?}/pfx"
+    if [[ ! -d "${pfx_dir}/${version}" ]] && [[ "$version" =~ $regex ]]; then
+	log::warn "Could not find version '$version'. Trying 'v${version}'."
+	version="v${version}"
+    fi
+
+    if [[ ! -d "${pfx_dir}/${version}" ]]; then
+	log::fatal "Package '$name' with version '$version' does not exist."
+    fi
+
+    local res
+    res="$(readlink -f "${pfx_dir}/_")"
+    if [[ "$res" == "${pfx_dir}/${version}" ]]; then
+	log::error "Already using '$version'. Nothing to do."
+	exit 0
+    fi
+
+    # TODO: Why must i delete the symlink? Why doesn't -f override it?
+    log::debug "Deleting symlink '${pfx_dir}/_'"
+    rm -f "${pfx_dir}/_"
+
+    log::debug "Symlinking '${pfx_dir}/${version}' to '${pfx_dir}/_'"
+    ln -srf "${pfx_dir}/${version}" "${pfx_dir}/_"
+
+    log::info "Using '${version}'"
+}
+
+main "$@"

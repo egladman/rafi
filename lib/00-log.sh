@@ -1,7 +1,12 @@
 log::_println() {
     # Usage: log::_println "prefix" "string"
-    printf -v now '%(%m-%d-%Y %H:%M:%S)T' -1
-    printf '%b\n' "[${1:: 4}] ${now} ${0##*/}: ${2:?}"
+    local prefix
+    if [[ $DEBUG -eq 1 ]]; then
+	printf -v now '%(%m-%d-%Y %H:%M:%S)T' -1
+	prefix="[${1:: 4}] ${now} ${0##*/}: "
+    fi
+
+    printf '%b\n' "${prefix}${2:?}"
 }
 
 log::_fatal() {
