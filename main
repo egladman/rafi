@@ -187,7 +187,8 @@ main() {
     export CMD_STATE_DIR="${SELF_STATE_DIR:?}/${ARGV[0]}"
     export -f init
 
-    fs::mkdir "$SELF_BIN_DIR" "$CMD_CONFIG_DIR" "$CMD_DATA_DIR" "$CMD_STATE_DIR"
+    # FIXME: Calling is each time doesnt make sense
+    fs::mkdir "$SELF_BIN_DIR" "$CMD_CONFIG_DIR" "$CMD_DATA_DIR" "$CMD_STATE_DIR" "$SELF_INDEX_DIR"
 
     local subcommand="${SELF_DIR}/libexec/${ARGV[0]}"
     if [[ -n "${ARGV[0]}" ]]; then

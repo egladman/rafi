@@ -7,15 +7,18 @@ main() {
 
     #@ -h,--help | print this text
     #@ list | Print installed packages
-    list::installed
+    list::installed "$@"
 }
 
 list::installed() {
+    local name="$1"
+    
     if [[ ! -d "${SELF_INDEX_DIR}" ]]; then
 	log::fatal "Index not found."
     fi
 
-    for n in "${SELF_INDEX_DIR}/"*; do
+    # Lazy way to support listing packages and package versions
+    for n in "${SELF_INDEX_DIR}/${name:-.}/"*; do
 	printf '%s\n' "${n##*/}"
     done
 }

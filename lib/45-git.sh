@@ -8,3 +8,7 @@ git::checkout() {
 	git checkout "v${1}"
     fi
 }
+
+git::pull() {
+    git pull origin "${1:?}"
+}

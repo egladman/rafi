@@ -139,6 +139,7 @@ install::package() {
 
     declare -a internal_post_phases=(
 	sys_setpath
+	sys_markinstalled
     )
 
     # TODO: is there a better spot for these functions than nesting them here?
@@ -154,6 +155,11 @@ install::package() {
 
     sys_setpath(){
 	# After install add executables to the final bin path
+	if [[ ! -d "${PKG_DATA_DIR:?}/pfx/_/bin" ]]; then
+	   log::debug "Path '${PKG_DATA_DIR:?}/pfx/_/bin' does not exist. Skipping."
+	   return 0
+	fi
+
 	for b in "${PKG_DATA_DIR:?}/pfx/_/bin/"*; do
 	    log::debug "Symlinking '$b' to '${SELF_BIN_DIR:?}'"
 	    ln -srf "$b" "${SELF_BIN_DIR:?}"
@@ -161,7 +167,7 @@ install::package() {
     }
 
     sys_markinstalled() {
-	fs::mkdir "${SELF_STATE_DIR}/_/${PKG_NAME}"
+	fs::mkdir "${SELF_INDEX_DIR:?}/${PKG_NAME:?}/${PKG_REF:?}"
     }
 
     phases=(${internal_pre_phases[@]} ${external_phases[@]} ${internal_post_phases[@]})
@@ -189,15 +195,16 @@ install::package() {
 
     local count
     for p in "${phases[@]}"; do
+	log::debug "Starting phase: $p"
 	case "$p" in
 	    usr_stable_version|usr_latest_version)
 		PKG_REF=$("$p")
 		log::debug "Assigned ref to: $PKG_REF"
-		shift
+		continue
 		;;
 	    # FIXME: If the source already exists locally no attempts will be made to update them
 	    src_unpack)
-		count=$(fs::count "${PKG_SRC_DIR}"/*)
+		count=$(fs::count "${PKG_SRC_DIR}/"*)
 		if [[ $count -gt 1 ]]; then
 		    log::debug "Skipping phase '$p'. Source already exists in directory: ${PKG_SRC_DIR}"
 		    continue
@@ -206,7 +213,7 @@ install::package() {
 	    sys_*)
 		# sys_* phases are internal, will always exist and should be invoked in the current shell
 		"$p"
-		shift
+		continue
 		;;
 	esac
 
