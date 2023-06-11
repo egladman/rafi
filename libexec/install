@@ -233,7 +233,7 @@ install::package() {
 	
 	declare -a library_paths=(
 	    "${RAFI_ROOTFS_LIB64_DIR}"
-	    "${RAFI_ROOTFS_LIB64_DIR}"
+	    "${RAFI_ROOTFS_LIB_DIR}"
 	    "${RAFI_ROOTFS_USR_DIR}/lib64"
 	    "${RAFI_ROOTFS_USR_DIR}/lib"
 	)

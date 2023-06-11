@@ -9,9 +9,9 @@ RAFI_HOME_LIB_DIR="${RAFI_HOME_DIR}/lib"
 RAFI_HOME_LIBEXEC_DIR="${RAFI_HOME_DIR}/libexec"
 RAFI_HOME_PKGS_DIR="${RAFI_HOME_DIR}/pkgs"
 
-RAFI_USR_CONFIG_DIR="${XDG_CONFIG_HOME:-${HOME}/.config}/${RAFI_ID}"
-RAFI_USR_STATE_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/${RAFI_ID}"
-RAFI_USR_DATA_DIR="${XDG_DATA_HOME:-${HOME}/.local/share}/${RAFI_ID}"
+RAFI_USR_CONFIG_DIR="${XDG_CONFIG_HOME:-${HOME:?}/.config}/${RAFI_ID}"
+RAFI_USR_STATE_DIR="${XDG_STATE_HOME:-${HOME:?}/.local/state}/${RAFI_ID}"
+RAFI_USR_DATA_DIR="${XDG_DATA_HOME:-${HOME:?}/.local/share}/${RAFI_ID}"
 
 RAFI_INDEX_DIR="${RAFI_USR_STATE_DIR}"
 RAFI_INDEX_INSTALLED_DIR="${RAFI_USR_STATE_DIR}/installed"
@@ -87,13 +87,6 @@ self::install() {
 	     "${RAFI_ROOTFS_USR_DIR}/lib64" \
              "$RAFI_ROOTFS_LIB_DIR" \
              "$RAFI_ROOTFS_LIB64_DIR"
-
-#    local linker_target
-#    linker_target="$(gcc -dumpmachine)"
-#    ln -srf "${RAFI_ROOTFS_LIB}" "${RAFI_ROOTFS_LIB}/${linker_target}"
-#    ln -srf "${RAFI_ROOTFS_LIB64}" "${RAFI_ROOTFS_LIB64}/${linker_target}"
-#    ln -srf "${RAFI_ROOTFS_USR}/lib" "${RAFI_ROOTFS_USR}/lib/${linker_target}"
-#    ln -srf "${RAFI_ROOTFS_USR}/lib64" "${RAFI_ROOTFS_USER}/lib64/${linker_target}"    
 }
 
 self::configure_bash() {
