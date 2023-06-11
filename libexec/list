@@ -12,13 +12,8 @@ main() {
 
 list::installed() {
     local name="$1"
-    
-    if [[ ! -d "${SELF_INDEX_DIR}" ]]; then
-	log::fatal "Index not found."
-    fi
 
-    # Lazy way to support listing packages and package versions
-    for n in "${SELF_INDEX_DIR}/${name:-.}/"*; do
+    for n in "${RAFI_INDEX_INSTALLED_DIR}/${name:-.}/"*; do
 	printf '%s\n' "${n##*/}"
     done
 }

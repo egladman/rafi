@@ -1,21 +1,36 @@
 #!/usr/bin/env bash
 
-set -o errexit -o pipefail
+# Be mindful. Anything sandwiched between the two "set" lines will be exported
+set -o errexit -o pipefail -o allexport
+RAFI_ID="rafi"
+RAFI_HOME_DIR="$(dirname "$(readlink -f "$0")")" # Libraries have yet to be loaded to we must fallback to external commands
 
-SELF="$(readlink -f "$0")" # Absolute path
-SELF_DIR="$(dirname "$SELF")"
-SELF_NAME="rafi"
-export SELF SELF_DIR SELF_NAME
+RAFI_HOME_LIB_DIR="${RAFI_HOME_DIR}/lib"
+RAFI_HOME_LIBEXEC_DIR="${RAFI_HOME_DIR}/libexec"
+RAFI_HOME_PKGS_DIR="${RAFI_HOME_DIR}/pkgs"
 
-export SELF_CONFIG_DIR="${XDG_CONFIG_HOME:-${HOME}/.config}/${SELF_NAME}"
-export SELF_STATE_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/${SELF_NAME}"
-export SELF_DATA_DIR="${XDG_DATA_HOME:-${HOME}/.local/share}/${SELF_NAME}"
-export SELF_BIN_DIR="${XDG_DATA_HOME:-${HOME}/.local/share}/${SELF_NAME}/_/bin"
-export SELF_INDEX_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/${SELF_NAME}/_"
+RAFI_USR_CONFIG_DIR="${XDG_CONFIG_HOME:-${HOME}/.config}/${RAFI_ID}"
+RAFI_USR_STATE_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/${RAFI_ID}"
+RAFI_USR_DATA_DIR="${XDG_DATA_HOME:-${HOME}/.local/share}/${RAFI_ID}"
+
+RAFI_INDEX_DIR="${RAFI_USR_STATE_DIR}"
+RAFI_INDEX_INSTALLED_DIR="${RAFI_USR_STATE_DIR}/installed"
+RAFI_INDEX_EQUIPPED_DIR="${RAFI_USR_STATE_DIR}/equipped"
+
+RAFI_ROOTFS_DIR="${RAFI_USR_DATA_DIR}/rootfs"
+RAFI_ROOTFS_BIN_DIR="${RAFI_ROOTFS_DIR}/bin"
+RAFI_ROOTFS_ETC_DIR="${RAFI_ROOTFS_DIR}/etc"
+RAFI_ROOTFS_USR_DIR="${RAFI_ROOTFS_DIR}/usr"
+RAFI_ROOTFS_VAR_DIR="${RAFI_ROOTFS_DIR}/var"
+RAFI_ROOTFS_LIB_DIR="${RAFI_ROOTFS_DIR}/lib"
+RAFI_ROOTFS_LIB64_DIR="${RAFI_ROOTFS_DIR}/lib64"
+
+RAFI_CONF_MULTILIB_SUPPORT=${RAFI_CONF_MULTILIB_SUPPORT:-1}
 
 DEBUG=${DEBUG:-0}
 DRYRUN=${DRYRUN:-0}
 CLEAN=${CLEAN:-1}
+set +o allexport
 
 ARGV=()
 
@@ -29,7 +44,7 @@ usage::print() {
 	cmd+=("${1##*/}")
     fi
 
-    printf '%s: %s\n' "Version" "$(<"${SELF_DIR}/VERSION")" 
+    printf '%s: %s\n' "Version" "$(<"${RAFI_HOME_DIR}/VERSION")" 
     
     printf '\n%s:\n' "Environment"
     printf '%s 0/1\n  %s\n' "DEBUG" "Print debug logs. Default is 0" "DRYRUN" "Do not execute commands only print them. Default is 0"
@@ -52,29 +67,42 @@ usage::print() {
 self::install() {
     # Usage: self::install
 
-    local bin_dir="${DESTDIR:-${HOME}/.local}/bin"
-    declare -a dirs=(
-	"$SELF_CONFIG_DIR" "$SELF_DATA_DIR" "$SELF_STATE_DIR" "$bin_dir"
-    )
+    local bin_dir="${DESTDIR-${HOME}/.local}/bin"
 
-    for d in "${dirs[@]}"; do
-	if [[ -d "$d" ]]; then
-	    continue
-	fi
-	mkdir -p "$d"
-    done
+    ln -srf "${0##*/}" "${bin_dir}/${RAFI_ID}"
+    printf '%s\n' "Installed executable to ${bin_dir}/${RAFI_ID}"
 
-    ln -srf "${0##*/}" "${bin_dir}/${SELF_NAME}"
-    printf '%s\n' "Installed to ${bin_dir}/${SELF_NAME}"
+    mkdir -p "$RAFI_USR_CONFIG_DIR" \
+             "$RAFI_USR_STATE_DIR" \
+             "$RAFI_USR_DATA_DIR" \
+	     "$RAFI_INDEX_DIR" \
+	     "$RAFI_INDEX_INSTALLED_DIR" \
+	     "$RAFI_INDEX_EQUIPPED_DIR" \
+             "$RAFI_ROOTFS_DIR" \
+             "$RAFI_ROOTFS_BIN_DIR" \
+             "$RAFI_ROOTFS_ETC_DIR" \
+	     "$RAFI_ROOTFS_VAR_DIR" \
+             "$RAFI_ROOTFS_USR_DIR" \
+	     "${RAFI_ROOTFS_USR_DIR}/lib" \
+	     "${RAFI_ROOTFS_USR_DIR}/lib64" \
+             "$RAFI_ROOTFS_LIB_DIR" \
+             "$RAFI_ROOTFS_LIB64_DIR"
+
+#    local linker_target
+#    linker_target="$(gcc -dumpmachine)"
+#    ln -srf "${RAFI_ROOTFS_LIB}" "${RAFI_ROOTFS_LIB}/${linker_target}"
+#    ln -srf "${RAFI_ROOTFS_LIB64}" "${RAFI_ROOTFS_LIB64}/${linker_target}"
+#    ln -srf "${RAFI_ROOTFS_USR}/lib" "${RAFI_ROOTFS_USR}/lib/${linker_target}"
+#    ln -srf "${RAFI_ROOTFS_USR}/lib64" "${RAFI_ROOTFS_USER}/lib64/${linker_target}"    
 }
 
 self::configure_bash() {
     # Usage: self::configure_bash
-    if [[ "$PATH" == *"${SELF_BIN_DIR}"* ]]; then
+    if [[ "$PATH" == *"${RAFI_ROOTFS_BIN_DIR}"* ]]; then
 	return 0
     fi
 
-    printf '%s\n' "source <(printf '%s\n' PATH=\"${SELF_BIN_DIR}:\$PATH\")"
+    printf '%s\n' "source <(printf '%s\n' PATH=\"${RAFI_ROOTFS_BIN_DIR}:\$PATH\")"
 }
 
 arg::parse() {
@@ -89,7 +117,7 @@ arg::parse() {
 	    #@ -h,--help | Print this text
 	    -h|--help)
 		local usage_source_file
-		usage_source_file="${SELF_DIR}/libexec/${targets[0]}"
+		usage_source_file="${RAFI_HOME_LIBEXEC}/${targets[0]}"
 		if [[ -z "${targets[0]}" ]]; then
 		    usage_source_file="$0"
 		fi
@@ -158,7 +186,7 @@ bootstrap() {
 
 init() {
     # Usage: init
-    for f in "${SELF_DIR}/lib/"*.sh; do
+    for f in "${RAFI_HOME_LIB_DIR}/"*.sh; do
 	if [[ $DEBUG -eq 1 ]]; then
 	    printf '%s\n' "Loading library: $f"
 	fi
@@ -180,17 +208,10 @@ main() {
 	    exit 0
 	    ;;
     esac
-    
-    export CLEAN DEBUG DRYRUN
-    export CMD_CONFIG_DIR="${SELF_CONFIG_DIR:?}/${ARGV[0]}"
-    export CMD_DATA_DIR="${SELF_DATA_DIR:?}/${ARGV[0]}"
-    export CMD_STATE_DIR="${SELF_STATE_DIR:?}/${ARGV[0]}"
+
     export -f init
 
-    # FIXME: Calling is each time doesnt make sense
-    fs::mkdir "$SELF_BIN_DIR" "$CMD_CONFIG_DIR" "$CMD_DATA_DIR" "$CMD_STATE_DIR" "$SELF_INDEX_DIR"
-
-    local subcommand="${SELF_DIR}/libexec/${ARGV[0]}"
+    local subcommand="${RAFI_HOME_LIBEXEC_DIR}/${ARGV[0]}"
     if [[ -n "${ARGV[0]}" ]]; then
 	if [[ -x "$subcommand" ]]; then	    
 	    log::debug "Executing command '$subcommand' with arguments: ${argv[*]:1}"

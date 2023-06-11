@@ -44,7 +44,7 @@ remove::dependencies() {
 remove::group() {
     local name="${1:?}"
 
-    local group="${SELF_DIR}/pkgs/group/${name}/ALIAS"
+    local group="${RAFI_HOME_PKGS_DIR}/group/${name}/ALIAS"
     if [[ ! -f "$group" ]]; then
 	log::debug "Path '$group' does not exist."
 	log::fatal "Group '$name' does not exist."
@@ -93,6 +93,7 @@ remove::package() {
 
     log::info "Removing $name"
     rm -rf "$install_dir"
+    rm -rf "${RAFI_INDEX_INSTALLED_DIR}/${name}"   
 }
 
 main "$@"

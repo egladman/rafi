@@ -20,14 +20,13 @@ version::print() {
     local name="${1:?}"
 
     # TODO: we could error out sooner if we check if the package dir exists
-    local pfx_dir="${SELF_DATA_DIR}/install/${name:?}/pfx"
-    if [[ ! -h "${pfx_dir}/_" ]]; then
-	log::debug "Path '${pfx_dir}/_' does not exist."
+    if [[ ! -h "${RAFI_INDEX_EQUIPPED_VERSION}/${name}" ]]; then
+	log::debug "Path '${RAFI_INDEX_EQUIPPED_VERSION}/${name}"
 	log::fatal "No version set for package '$name'. Is it even installed?"
     fi
 
     local res
-    res="$(readlink -f "${pfx_dir}/_")"
+    res="$(readlink -f "${RAFI_INDEX_EQUIPPED_VERSION}/${name}")"
 
     printf '%s\n' "${res##*/}"
 }

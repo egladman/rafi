@@ -18,7 +18,7 @@ use::version() {
     # This is a duplicated. First declared in lib/45-git.sh
     local regex="^(0|([1-9])+)*"
 
-    local pfx_dir="${SELF_DATA_DIR}/install/${name:?}/pfx"
+    local pfx_dir="${RAFI_USR_DATA_DIR}/${name}/pfx"
     if [[ ! -d "${pfx_dir}/${version}" ]] && [[ "$version" =~ $regex ]]; then
 	log::warn "Could not find version '$version'. Trying 'v${version}'."
 	version="v${version}"
@@ -29,18 +29,18 @@ use::version() {
     fi
 
     local res
-    res="$(readlink -f "${pfx_dir}/_")"
+    res="$(readlink -f "${RAFI_INDEX_EQUIPPED_DIR}/${name}")"
     if [[ "$res" == "${pfx_dir}/${version}" ]]; then
 	log::error "Already using '$version'. Nothing to do."
 	exit 0
     fi
 
     # TODO: Why must i delete the symlink? Why doesn't -f override it?
-    log::debug "Deleting symlink '${pfx_dir}/_'"
-    rm -f "${pfx_dir}/_"
+    log::debug "Deleting symlink '${RAFI_INDEX_EQUIPPED_DIR}/${name}'"
+    rm -f "${RAFI_INDEX_EQUIPPED_DIR}/${name}"
 
-    log::debug "Symlinking '${pfx_dir}/${version}' to '${pfx_dir}/_'"
-    ln -srf "${pfx_dir}/${version}" "${pfx_dir}/_"
+    log::debug "Symlinking '${pfx_dir}/${version}' to '${RAFI_INDEX_EQUIPPED_DIR}/${name}'"
+    ln -srf "${pfx_dir}/${version}" "${RAFI_INDEX_EQUIPPED_DIR}/${name}"
 
     log::info "Using '${version}'"
 }

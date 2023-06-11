@@ -1,0 +1,3 @@
+[submodule "pkgs"]
+	path = pkgs
+	url = git@github.com:egladman/rafi-repo.git

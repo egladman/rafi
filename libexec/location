@@ -19,20 +19,18 @@ main() {
 location::print() {
     local name="${1:?}"
 
-    local install_dir="${SELF_DATA_DIR:?}/install/${name}"
+    local install_dir="${RAFI_USR_DATA_DIR:?}/${name}"
     if [[ ! -d "$install_dir" ]]; then
 	log::fatal "Package '$name' not found."
     fi
 
-    # FIXME: duplicate code from libexec/version
-    local pfx_dir="${install_dir}/pfx"
-    if [[ ! -h "${pfx_dir}/_" ]]; then
-	log::debug "Path '${pfx_dir}/_' does not exist."
+    if [[ ! -h "${RAFIX_INDEX_EQUIPPED_DIR}/${name}" ]]; then
+	log::debug "Path '${RAFIX_INDEX_EQUIPPED_DIR}/${name}' does not exist."
 	log::fatal "No version set for package '$name'. Is it even installed?"
     fi
     
     local res
-    res="$(readlink -f "${pfx_dir}/_")"
+    res="$(readlink -f "${RAFIX_INDEX_EQUIPPED_DIR}/${name}")"
 
     printf '%s\n' "$res"
 }

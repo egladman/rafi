@@ -9,6 +9,31 @@ git::checkout() {
     fi
 }
 
+git::patch() {
+    declare -a wrkarr
+    if [[ -d ../pkg/patches ]]; then
+	wrkarr=(../pkg/patches/*.patch)
+	set -- "${wrkarr[@]}"
+    fi
+
+    if [[ -z "$1" ]]; then
+	log::fatal "No patches found."
+    fi
+    
+    for p in "$@"; do
+	log::debug "Applying patch: $p"
+	git apply --stat --apply "$p"
+    done
+}
+
+git::clone() {
+    git clone "${1:?}" .
+}
+
+git::rclone() {
+    git clone --recurse-submodules "${1:?}" .
+}
+
 git::pull() {
     git pull origin "${1:?}"
 }

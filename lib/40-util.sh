@@ -11,6 +11,32 @@ string::split() {
    printf '%s\n' "${arr[@]}"
 }
 
+fn::exists() {
+    declare -F "${1:?}" > /dev/null
+}
+
+fs::dir_name() {
+    # Usage: fs::dirname "path"
+    local tmp=${1:-.}
+
+    [[ $tmp != *[!/]* ]] && {
+        printf '/\n'
+        return
+    }
+
+    tmp=${tmp%%"${tmp##*[!/]}"}
+
+    [[ $tmp != */* ]] && {
+        printf '.\n'
+        return
+    }
+
+    tmp=${tmp%/*}
+    tmp=${tmp%%"${tmp##*[!/]}"}
+
+    printf '%s\n' "${tmp:-/}"
+}
+
 fs::mkdir() {
     # Usage: fs::mkdir dir...
     for p in "$@"; do
@@ -38,6 +64,49 @@ fs::count() {
     printf '%s\n' "$count"
 }
 
+fs::walk_dir() {
+    # Usage: fs::walk_dirs "path/to/dir" func_name
+    local path="${1:?}"
+    local hook="${2:?}"
+    
+    for f in "${path}"/*; do
+	if [[ -d "$f" ]]; then
+	    "${FUNCNAME[0]}" "$f" "$hook"
+	    continue
+	fi
+
+	"$hook" "$f"
+    done
+}
+
+fs::walk_dir_reverse() {
+    # Usage: fs::walk_dirs_reverse "path/to/dir" "path/to/dir" func_name
+    #        fs::walk_dirs_reverse "path/to/dir" / func_name
+    local path="${1:?}"
+    local last_path="${2:?}"
+    local hook="${3:?}"
+ 
+    local dir_name
+    dir_name="$(fs::dir_name "$path")"
+
+    if [[ "$path" == "$last_path" ]] && [[ "$path" == "/" ]]; then
+       	path=""
+    fi
+    
+    for f in "${path}"/*; do
+	if [[ ! -d "$f" ]]; then
+	    "$hook" "$f"
+	fi
+    done
+    
+    if [[ -z "$path" ]] || [[ "$path" == "$last_path" ]]; then
+	return 0
+    fi
+
+    "${FUNCNAME[0]}" "$dir_name" "$last_path" "$hook"
+}
+
+# TODO rename
 path::basename() {
     # Usage: path::basename "path" ["suffix"]
     local tmp
@@ -69,8 +138,4 @@ version::first_stable() {
     done
 
     return 1
-}
-
-fn::exists() {
-    declare -F "${1:?}" > /dev/null
 }

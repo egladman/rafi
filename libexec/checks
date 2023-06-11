@@ -30,6 +30,7 @@ check::bash_version() {
 
 check::dependencies() {
     declare -a deps=(
+	gcc
 	git
     )
 

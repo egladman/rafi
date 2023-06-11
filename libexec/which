@@ -14,7 +14,7 @@ main() {
 which::bin() {
     local bin="${1:?}"
 
-    local bin_path="${SELF_BIN_DIR}/${bin}"
+    local bin_path="${RAFI_ROOTFS_BIN_DIR}/${bin}"
     if [[ -x "$bin_path" ]]; then
 	readlink -f "$bin_path"
 	return 0

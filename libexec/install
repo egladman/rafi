@@ -7,7 +7,11 @@ main() {
 
     #@ -h,--help | print this text
     #@ install | install package/group
-    
+
+    install::triage "$@"
+}
+
+install::triage() {
     for n in "$@"; do
 	case "$n" in
 	    "@"*)
@@ -23,7 +27,7 @@ main() {
 install::find_package() {
     local name="${1:?}"
 
-    for d in "${SELF_DIR:?}"/pkgs/**/"${name}"; do
+    for d in "${RAFI_HOME_PKGS_DIR:?}"/**/"${name}"; do
 	# FIXME: This assumes there are no package name conflicts
 	package="$d"
 	break
@@ -41,7 +45,7 @@ install::dependencies() {
 
     log::debug "Checking for dependencies."
     
-    local dependencies="${package}/REQUIRE"
+    local dependencies="${package}/DEPENDS"
     if [[ ! -f "$dependencies" ]]; then
 	log::debug "No dependencies found. Path '$dependencies' does not exist. Skipping."
 	return 0
@@ -54,14 +58,14 @@ install::dependencies() {
 	fi
 	
 	log::info "Installing dependency '$line'."
-	install::package "$line"
+	(install::package "$line")
     done < "$dependencies"
 }
 
 install::group() {
     local name="${1:?}"
 
-    local group="${SELF_DIR}/pkgs/group/${name}/ALIAS"
+    local group="${RAFI_HOME_PKGS_DIR:?}/group/${name}/ALIAS"
     if [[ ! -f "$group" ]]; then
 	log::debug "Path '$group' does not exist."
 	log::fatal "Group '$name' does not exist."
@@ -69,11 +73,11 @@ install::group() {
 
     # FIXME: Refactor to remove the ||
     while read -r line || [[ -n "$line"  ]]; do
-	if [[ -z "$line" ]]; then
+	if [[ -z "$line" ]] || [[ "$line" == "#"* ]]; then
 	    continue
 	fi
 	
-	install::package "$line"
+	(install::triage "$line")
     done < "$group"
 }
 
@@ -81,44 +85,47 @@ install::package() {
     set -- $(string::split "${1:?}" "@")
 
     local name="$1"
-    local version="$2"
-    
-    local package
-    package="$(install::find_package "$name")"
-    log::debug "Found package: ${package}"
+    local ref="$2"
 
-    install::dependencies "$package"
+    PKG_SPEC_NAME="$name"
+    PKG_SPEC_DIR="$(install::find_package "$name")"
+    log::debug "Found package directory: ${PKG_SPEC_DIR}"
+
+    install::dependencies "$PKG_SPEC_DIR"    
     
-    if [[ ! -f "${package}/SOURCE" ]]; then
-	log::debug "Path '$package' does not exist."
-	log::fatal "Package '$name' does not exist."
+    if [[ ! -f "${PKG_SPEC_DIR}/SOURCE" ]]; then
+	log::debug "Path '${PKG_SPEC_DIR}' does not exist."
+	log::fatal "Package definition for '${PKG_SPEC_NAME}' does not exist."
     fi
 
-    log::info "Installing $name"
-    source "${package}/SOURCE"
-
-    PKG_DIR="$package"
-    PKG_NAME="$name"
+    log::info "Installing $PKG_SPEC_NAME"
+    source "${PKG_SPEC_DIR}/SOURCE"
 
     local key val
-    for f in "${package}/vars/"*; do
+    for f in "${PKG_SPEC_DIR}/vars"/*; do
 	key="vars_${f##*/}"
 	val="$(<"$f")"
 
 	log::debug "Setting variable '$key' to value '$val'"
 	eval export ${key}="${val}"
     done
-
-    PKG_REF="${vars_default_branch:?}"
-    if [[ -n "$version"  ]]; then	
-	log::debug "Ref overridden for package '$name': Installing version $version"
-	PKG_REF="$version"
+    PKG_SPEC_REF="${vars_ref:-$vars_default_ref}"
+    if [[ -n "$ref"  ]]; then	
+	log::debug "Ref overridden for package '$PKG_SPEC_NAME': Installing ref $ref"
+	PKG_SPEC_REF="$ref"
     fi
 
-    export PKG_DATA_DIR="${CMD_DATA_DIR}/${PKG_NAME}"
-    export PKG_SRC_DIR="${PKG_DATA_DIR}/src" # Source code
-    export PKG_REF PKG_DIR PKG_NAME
+    PKG_TMP_DIR="$(mktemp -d)"
+    PKG_DATA_DIR="${RAFI_USR_DATA_DIR}/${PKG_SPEC_NAME}"
+    PKG_DATA_SRC_DIR="${PKG_DATA_DIR}/src" # Source code
+    PKG_DATA_PFX_DIR="${PKG_DATA_DIR}/pfx" # Isolated rootfs
+    export PKG_SPEC_REF PKG_SPEC_DIR PKG_SPEC_NAME PKG_DATA_DIR PKG_DATA_SRC_DIR PKG_DATA_PFX_DIR
 
+    if [[ -d "${RAFI_INDEX_INSTALLED_DIR:?}/${PKG_SPEC_NAME:?}/${PKG_SPEC_REF:?}" ]]; then
+	log::info "Package '${PKG_SPEC_NAME}' already installed. Skipping."
+	return 0
+    fi
+    
     # Pretty much a one-for-one clone of Gentoo's ebuild phase functions
     declare -a external_phases=(
 	pkg_pretend
@@ -138,6 +145,7 @@ install::package() {
     )
 
     declare -a internal_post_phases=(
+	sys_copysource
 	sys_setpath
 	sys_markinstalled
     )
@@ -145,29 +153,52 @@ install::package() {
     # TODO: is there a better spot for these functions than nesting them here?
     sys_setpfx() {
 	# Each package version gets it's own install prefix
-	export PKG_PFX_DIR="${PKG_DATA_DIR:?}/pfx/${PKG_REF:?}"
-	log::debug "Install prefix: $PKG_PFX_DIR"
-	fs::mkdir "$PKG_PFX_DIR"
+	export PKG_DATA_PFX_SPEC_DIR="${PKG_DATA_PFX_DIR:?}/${PKG_SPEC_REF:?}"
+
+	log::debug "Install prefix: $PKG_DATA_PFX_SPEC_DIR"
+	fs::mkdir "$PKG_DATA_PFX_SPEC_DIR" "${RAFI_INDEX_EQUIPPED_DIR}/${PKG_SPEC_NAME}"
 
 	# Set the active package version. This gets added to the user's PATH
-	ln -srf "$PKG_PFX_DIR" "${PKG_DATA_DIR:?}/pfx/_"
+	ln -sf "$PKG_DATA_PFX_SPEC_DIR" "${RAFI_INDEX_EQUIPPED_DIR}/${PKG_SPEC_NAME}/ref"
     }
 
     sys_setpath(){
 	# After install add executables to the final bin path
-	if [[ ! -d "${PKG_DATA_DIR:?}/pfx/_/bin" ]]; then
-	   log::debug "Path '${PKG_DATA_DIR:?}/pfx/_/bin' does not exist. Skipping."
-	   return 0
+	count=$(fs::count "${RAFI_INDEX_EQUIPPED_DIR}/${PKG_SPEC_NAME}/ref"/*)
+	if [[ $count -gt 1 ]]; then
+	    return 0
 	fi
 
-	for b in "${PKG_DATA_DIR:?}/pfx/_/bin/"*; do
-	    log::debug "Symlinking '$b' to '${SELF_BIN_DIR:?}'"
-	    ln -srf "$b" "${SELF_BIN_DIR:?}"
+	# Walk the package rootfs and find all installed files
+	mapfile -t package_files < <(fs::walk_dir "${RAFI_INDEX_EQUIPPED_DIR}/${PKG_SPEC_NAME}/ref" echo)
+	if [[ ${#package_files} -eq 0 ]]; then
+	    log::fatal "Could not find any files associated with package: $PKG_SPEC_NAME"
+	fi
+
+	#TODO: fold symlinks that share commom base paths similar to how gnu stow functions
+	local prefix="${RAFI_INDEX_EQUIPPED_DIR}/${PKG_SPEC_NAME}/ref/"
+	for f in "${package_files[@]}"; do
+	    local rel="${f##$prefix}"
+	    local link="${RAFI_ROOTFS_DIR}/${rel}"
+
+	    local dir_name
+	    dir_name="$(fs::dir_name "$link")"
+
+	    fs::mkdir "$dir_name"
+	    log::debug "Symlnking '$f' to '$link'"
+	    ln -sfv "$f" "$link"
 	done
     }
 
     sys_markinstalled() {
-	fs::mkdir "${SELF_INDEX_DIR:?}/${PKG_NAME:?}/${PKG_REF:?}"
+	fs::mkdir "${RAFI_INDEX_INSTALLED_DIR:?}/${PKG_SPEC_NAME:?}/${PKG_SPEC_REF:?}"
+    }
+
+    sys_copysource() {
+	fs::mkdir "$PKG_DATA_SRC_DIR"
+	log::debug "Copying ${PKG_SPEC_NAME} source from '${PKG_TMP_DIR}/src' to '${PKG_DATA_SRC_DIR}'"
+
+	cp --archive "${PKG_TMP_DIR}/src" "$PKG_DATA_SRC_DIR"
     }
 
     phases=(${internal_pre_phases[@]} ${external_phases[@]} ${internal_post_phases[@]})
@@ -182,33 +213,79 @@ install::package() {
 	    ;;
     esac
 
-    fs::mkdir "$PKG_SRC_DIR"
-
-    log::debug "Entering directory: $PKG_SRC_DIR"
-    pushd "$PKG_SRC_DIR"
-
+    # Make a copy of the package spec. Never reference it directly in any of the phase functions.
+    fs::mkdir "${PKG_TMP_DIR}"/{pkg,src}
+    log::debug "Entering directory: $PKG_TMP_DIR"
+    pushd "$PKG_TMP_DIR"
+    
+    cp --archive "${PKG_SPEC_DIR}"/* pkg
+    
     # Prioritize our package's for the duration of the install
-    if [[ "$PATH" != "${SELF_BIN_DIR}:"* ]]; then
-	log::debug "Adding the following to PATH environment: ${SELF_BIN_DIR}"
-	PATH="${SELF_BIN_DIR}:${PATH}"
+    if [[ "$PATH" != *"${RAFI_ROOTFS_BIN_DIR}"* ]]; then
+	log::debug "Adding the following to PATH environment: ${RAFI_ROOTFS_BIN_DIR}"
+	PATH="${RAFI_ROOTFS_BIN_DIR}:${PATH}"
+
+#	# Depending on how gcc/g++ was compiled linker paths might be scoped by architecture
+#	if [[ $RAFI_CONF_MULTILIB_SUPPORT -eq 1 ]]; then
+#	    local lib_path_suffix
+#	    lib_path_suffix="/$(gcc -dumpmachine)"
+#	fi
+	
+	declare -a library_paths=(
+	    "${RAFI_ROOTFS_LIB64_DIR}"
+	    "${RAFI_ROOTFS_LIB64_DIR}"
+	    "${RAFI_ROOTFS_USR_DIR}/lib64"
+	    "${RAFI_ROOTFS_USR_DIR}/lib"
+	)
+	for lib_path in "${library_paths[@]}"; do
+	    log::debug "Appending path to LIBRARY_PATH: $lib_path"
+	    [[ -e "$lib_path" ]] && tree "$lib_path"
+	    if [[ -n "$LIBRARY_PATH" ]]; then
+		LIBRARY_PATH="${lib_path}${lib_path_suffix}:${LIBRARY_PATH}"
+	    else
+		LIBRARY_PATH="${lib_path}"
+	    fi
+	done
+
+	declare -a include_paths=(
+	    "${RAFI_ROOTFS_USR_DIR}/include"
+	)
+	for include_path in "${include_paths[@]}"; do
+	    log::debug "Appending path to CPATH: $include_path"
+
+	    if [[ -n "$CPATH" ]]; then
+		CPATH="${include_path}:${CPATH}"
+	    else
+		CPATH="${include_path}"
+	    fi
+	done
     fi
+    export LIBRARY_PATH
+    export CPATH
 
     local count
     for p in "${phases[@]}"; do
 	log::debug "Starting phase: $p"
 	case "$p" in
 	    usr_stable_version|usr_latest_version)
-		PKG_REF=$("$p")
-		log::debug "Assigned ref to: $PKG_REF"
+		PKG_SPEC_REF=$("$p")
+		log::debug "Assigned ref to: $PKG_SPEC_REF"
 		continue
 		;;
 	    # FIXME: If the source already exists locally no attempts will be made to update them
 	    src_unpack)
-		count=$(fs::count "${PKG_SRC_DIR}/"*)
+		count=$(fs::count "${PKG_DATA_SRC_DIR}/"*)
 		if [[ $count -gt 1 ]]; then
-		    log::debug "Skipping phase '$p'. Source already exists in directory: ${PKG_SRC_DIR}"
+		    # TODO: git reset?
+		    log::debug "Skipping phase '$p'. Source already exists in directory: ${PKG_DATA_SRC_DIR}"
+		    cp --archive "$PKG_DATA_SRC_DIR" "${PKG_TMP_DIR}/src"
 		    continue
 		fi
+		;;
+	    src_build)
+		log::info "PATH: $PATH"
+		log::info "LIBRARY_PATH: $LIBRARY_PATH"
+		log::info "CPATH: $CPATH"
 		;;
 	    sys_*)
 		# sys_* phases are internal, will always exist and should be invoked in the current shell
@@ -217,10 +294,22 @@ install::package() {
 		;;
 	esac
 
+	case "$p" in
+	    src_*)
+		pushd src
+		;;
+	    pkg_*)
+		pushd pkg
+		;;
+	esac
+
 	fn::exists "$p" && {
-	    log::debug "Executing phase function '$p' for package '$package'"
+	    log::debug "Executing phase function '$p' for package '${PKG_SPEC_NAME}'"
 	    ("$p")
 	}
+
+	log::debug "Leaving directory: $PWD"
+	popd
     done
 
     log::debug "Leaving directory: $PWD"
