@@ -163,17 +163,12 @@ install::package() {
     }
 
     sys_setpath(){
-	# After install add executables to the final bin path
-	count=$(fs::count "${RAFI_INDEX_EQUIPPED_DIR}/${PKG_SPEC_NAME}/ref"/*)
-	if [[ $count -gt 1 ]]; then
-	    return 0
-	fi
-
 	# Walk the package rootfs and find all installed files
 	mapfile -t package_files < <(fs::walk_dir "${RAFI_INDEX_EQUIPPED_DIR}/${PKG_SPEC_NAME}/ref" echo)
 	if [[ ${#package_files} -eq 0 ]]; then
 	    log::fatal "Could not find any files associated with package: $PKG_SPEC_NAME"
 	fi
+	log::debug "The following files belong to package '$PKG_SPEC_NAME': ${package_files[*]}"
 
 	#TODO: fold symlinks that share commom base paths similar to how gnu stow functions
 	local prefix="${RAFI_INDEX_EQUIPPED_DIR}/${PKG_SPEC_NAME}/ref/"
@@ -185,7 +180,7 @@ install::package() {
 	    dir_name="$(fs::dir_name "$link")"
 
 	    fs::mkdir "$dir_name"
-	    log::debug "Symlnking '$f' to '$link'"
+	    log::debug "Symlinking '$f' to '$link'"
 	    ln -sfv "$f" "$link"
 	done
     }
