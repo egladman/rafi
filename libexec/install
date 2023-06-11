@@ -116,7 +116,7 @@ install::package() {
     fi
 
     PKG_TMP_DIR="$(mktemp -d)"
-    PKG_DATA_DIR="${RAFI_USR_DATA_DIR}/${PKG_SPEC_NAME}"
+    PKG_DATA_DIR="${RAFI_USR_DATA_DIR}/pkgs/${PKG_SPEC_NAME}"
     PKG_DATA_SRC_DIR="${PKG_DATA_DIR}/src" # Source code
     PKG_DATA_PFX_DIR="${PKG_DATA_DIR}/pfx" # Isolated rootfs
     export PKG_SPEC_REF PKG_SPEC_DIR PKG_SPEC_NAME PKG_DATA_DIR PKG_DATA_SRC_DIR PKG_DATA_PFX_DIR
