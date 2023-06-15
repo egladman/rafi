@@ -1,6 +1,6 @@
 # rafi
 
-A minimalistic source-based package manager written in Bash. Ideal for immutable linux distributions, and single board computers. Originally started as a RetroArch installer for the Steam Deck.
+A minimalistic source-based package manager written in Bash. Ideal for immutable linux distributions, and single board computers.
 
 - Does not require elevated privileges.
 - Supports installing multiple versions of a package.
@@ -14,6 +14,7 @@ Some of my gripes with asdf:
 - When auto-complete is enabled `asdf install <name><TAB>` makes network calls. It's ofthen a laggy mess.
 - Very loose packaging standards. Plugin quality varies immensely.
 - Heavy reliance on external commands and pipes. This leads to a degraded user experience when waiting for commands/prompts to return.
+- the codepath that runs in the user's `.rc` file takes too long to return.
 
 ## Setup
 
