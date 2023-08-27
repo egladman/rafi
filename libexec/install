@@ -42,10 +42,11 @@ install::find_package() {
 
 install::dependencies() {
     local package="${1:?}"
+    local deptype="${2:-}"
 
     log::debug "Checking for dependencies."
     
-    local dependencies="${package}/DEPENDS"
+    local dependencies="${package}/${deptype^^}DEPENDS"
     if [[ ! -f "$dependencies" ]]; then
 	log::debug "No dependencies found. Path '$dependencies' does not exist. Skipping."
 	return 0
@@ -91,7 +92,8 @@ install::package() {
     PKG_SPEC_DIR="$(install::find_package "$name")"
     log::debug "Found package directory: ${PKG_SPEC_DIR}"
 
-    install::dependencies "$PKG_SPEC_DIR"    
+    install::dependencies "$PKG_SPEC_DIR" build # Build dependencies
+    install::dependencies "$PKG_SPEC_DIR"       # Runtime dependencies
     
     if [[ ! -f "${PKG_SPEC_DIR}/SOURCE" ]]; then
 	log::debug "Path '${PKG_SPEC_DIR}' does not exist."
