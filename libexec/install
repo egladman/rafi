@@ -97,7 +97,15 @@ install::package() {
     
     if [[ ! -f "${PKG_SPEC_DIR}/SOURCE" ]]; then
 	log::debug "Path '${PKG_SPEC_DIR}' does not exist."
-	log::fatal "Package definition for '${PKG_SPEC_NAME}' does not exist."
+
+	local msg="Package definition for '${PKG_SPEC_NAME}' does not exist."
+	fn::exists "rafi_install_fallback" && {
+	    log::warn "${msg} Executing function 'rafi_install_fallback'."
+	    rafi_install_fallback "$PKG_SPEC_NAME"
+	}
+	unset msg
+
+	log::fatal "Package definition for '${PKG_SPEC_NAME}' does not exist. Define bash function 'rafi_install_fallback' to attempt an install via an alternative package manager."
     fi
 
     log::info "Installing $PKG_SPEC_NAME"
