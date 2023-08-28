@@ -94,6 +94,8 @@ install::package() {
 
     install::dependencies "$PKG_SPEC_DIR" build # Build dependencies
     install::dependencies "$PKG_SPEC_DIR"       # Runtime dependencies
+
+    log::debug "Finished installing dependencies for package: ${PKG_SPEC_NAME}"
     
     if [[ ! -f "${PKG_SPEC_DIR}/SOURCE" ]]; then
 	log::debug "Path '${PKG_SPEC_DIR}' does not exist."
@@ -102,6 +104,7 @@ install::package() {
 	fn::exists "rafi_install_fallback" && {
 	    log::warn "${msg} Executing function 'rafi_install_fallback'."
 	    rafi_install_fallback "$PKG_SPEC_NAME"
+	    log::debug "Function 'rafi_install_fallback' completed. Returning early."
 	    return 0
 	}
 	unset msg
