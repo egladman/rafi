@@ -102,6 +102,7 @@ install::package() {
 	fn::exists "rafi_install_fallback" && {
 	    log::warn "${msg} Executing function 'rafi_install_fallback'."
 	    rafi_install_fallback "$PKG_SPEC_NAME"
+	    return 0
 	}
 	unset msg
 
